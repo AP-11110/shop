@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyTokenAndAuthorization } from "../verifyToken.js";
+import { verifyTokenAndAuthorization, verifyTokenAndAdmin } from "../verifyToken.js";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import { createError } from "../error.js";
@@ -41,7 +41,7 @@ router.delete("/:id", verifyTokenAndAuthorization, async (req, res, next) => {
 })
 
 // get user
-router.get("/find/:id", verifyTokenAndAuthorization, async (req, res, next) => {
+router.get("/find/:id", verifyTokenAndAdmin, async (req, res, next) => {
    try {
       const user = await User.findById(req.params.id);
       const { password, ...others } = user._doc;
@@ -52,7 +52,7 @@ router.get("/find/:id", verifyTokenAndAuthorization, async (req, res, next) => {
 })
 
 // get users
-router.get("/", verifyTokenAndAuthorization, async (req, res, next) => {
+router.get("/", verifyTokenAndAdmin, async (req, res, next) => {
    const query = req.query.new; // limit number of user to most recent users
    try {
       // if api/users?new=true, return most recent, else all
@@ -64,6 +64,33 @@ router.get("/", verifyTokenAndAuthorization, async (req, res, next) => {
 })
 
 // get user stats
+router.get("/stats", verifyTokenAndAdmin, async (req, res, next) => {
+   const date = new Date();
 
+   // saving current date - 1 year to get users created since 1 year ago
+   const lastYear = new Date(date.setFullYear(date.getFullYear() - 1));
+
+   try {
+      const data = await User.aggregate([
+         // match filters the documents to pass only the documents that match the specified condition
+         {$match: { createdAt: { $gte: lastYear }}},
+         {
+            // project Passes along the documents with the requested fields to the next stage in the pipeline
+            $project: {
+               month: {$month: "$createdAt"}
+            }
+         },
+         {
+            $group:{
+               _id: "$month",
+               total: {$sum: 1}
+            }
+         }
+      ]);
+      res.status(200).json(data)
+   } catch (err) {
+      next(err);
+   }
+})
 
 export default router;

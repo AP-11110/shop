@@ -27,3 +27,14 @@ export const verifyTokenAndAuthorization = (req, res, next) => {
       }
     });
   };
+
+// checking whether user is admin
+export const verifyTokenAndAdmin = (req, res, next) => {
+  verifyToken(req, res, () => {
+    if (req.user.isAdmin) {
+      next();
+    } else {
+      next(createError(401, "You are not alowed to do that!"));
+    }
+  });
+};
